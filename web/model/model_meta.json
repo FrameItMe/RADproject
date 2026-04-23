@@ -1,0 +1,16 @@
+{
+  "model_file": "mammogram_classifier_q.onnx",
+  "input_shape": [
+    1,
+    224,
+    224,
+    3
+  ],
+  "class_names": [
+    "normal",
+    "benign",
+    "malignant"
+  ],
+  "quantized": true,
+  "size_bytes": 7750776
+}

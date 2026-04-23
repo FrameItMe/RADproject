@@ -1,0 +1,11 @@
+.venv/
+dataset/
+datateacher/
+data/
+experiments/
+logs/
+artifacts/
+__pycache__/
+*.keras
+*.ipynb
+.DS_Store

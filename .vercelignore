@@ -1,0 +1,31 @@
+# Directories not needed for static deploy
+.venv/
+dataset/
+datateacher/
+data/
+experiments/
+logs/
+ml/
+artifacts/
+__pycache__/
+
+# Python files (not needed for static site)
+app.py
+*.py
+*.pyc
+*.pyo
+
+# Dev files
+.git/
+.DS_Store
+*.ipynb
+*.bat
+*.sh
+*.command
+open_yanoey.*
+run_mac.*
+QUICKSTART.md
+
+# Large original model (we ship the quantized ONNX only)
+web/model/best_model.keras
+web/model/mammogram_classifier.onnx

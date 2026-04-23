@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Processing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/ort.min.js"></script>
+</head>
+
+<body>
+
+<div class="app-shell">
+<div class="navbar">
+  <div class="brand-wrap">
+    <div class="brand-dot"></div>
+    <div>
+      <div class="brand-title">Rad. Image Pitch</div>
+      <div class="brand-sub">Image Lab Workflow</div>
+    </div>
+  </div>
+  <button id="menuBtn" class="menu-btn" aria-label="Toggle menu">☰</button>
+</div>
+
+<div class="container">
+
+<!-- PAGE 1 -->
+<section id="page1" class="page-card">
+  <h2>Page 1: Noise + Brightness</h2>
+  <p class="page-note">อัปโหลดรูป 1 ครั้ง แล้วปรับค่าได้ต่อเนื่องเพื่อส่งต่อไปหน้า 2</p>
+
+  <label for="uploadMain">Upload Image</label>
+  <input type="file" id="uploadMain" accept="image/*"><br><br>
+
+  <div class="canvas-wrapper">
+    <div>
+      <h4>Original</h4>
+      <canvas id="original"></canvas>
+    </div>
+    <div>
+      <h4>Preview</h4>
+      <canvas id="edited"></canvas>
+    </div>
+  </div>
+
+  <div class="control-grid">
+    <label for="noise">Noise Reduction: <span id="noiseValue">0</span></label>
+    <input type="range" id="noise" min="0" max="20" value="0">
+
+    <label for="noiseFilterSelect">Noise Filter</label>
+    <select id="noiseFilterSelect">
+      <option value="mean">Mean Filter</option>
+      <option value="gaussian">Gaussian Filter</option>
+      <option value="median">Median Filter</option>
+    </select>
+
+    <div class="auto-noise-wrap">
+      <button id="btnAutoNoise">Auto Noise</button>
+    </div>
+
+    <label for="brightness">Brightness: <span id="brightnessValue">0</span></label>
+    <input type="range" id="brightness" min="-100" max="100" value="0">
+  </div>
+  <div id="noiseInfo" class="result-box">Noise analyzer: waiting for image.</div>
+
+  <button id="btnResetPage1" class="secondary-btn">Reset Page 1</button>
+
+  <button class="arrow next" id="toPage2" title="Go to page 2">➜</button>
+</section>
+
+<!-- PAGE 2 -->
+<section id="page2" class="page-card hidden">
+  <h3>Page 2: Contrast</h3>
+
+  <div class="canvas-wrapper">
+    <div>
+      <h4>Current Input</h4>
+      <canvas id="page2Input"></canvas>
+    </div>
+    <div>
+      <h4>Contrast Result</h4>
+      <canvas id="page2Output"></canvas>
+    </div>
+  </div>
+
+  <div class="control-grid page2-controls">
+    <div class="center-row">
+      <button id="btnAutoContrast">Auto Contrast</button>
+    </div>
+
+    <label for="contrast">Contrast: <span id="contrastValue">0</span></label>
+    <input type="range" id="contrast" min="-100" max="100" value="0">
+
+    <label for="claheClip">CLAHE Clip Limit: <span id="claheClipValue">2.0</span></label>
+    <input type="range" id="claheClip" min="1.0" max="8.0" step="0.1" value="2.0">
+
+    <input type="hidden" id="claheTiles" value="8">
+
+    <div class="center-row">
+      <button id="btnApplyClahe">Apply CLAHE</button>
+      <button id="btnUndoPage2" class="secondary-btn">Undo Last Apply</button>
+    </div>
+    <div id="claheInfo" class="result-box">CLAHE ready | Clip Limit: 2.0 | Tile Grid: 8x8</div>
+  </div>
+
+  <div class="result-box">
+    <strong>Page 2 History</strong>
+    <div id="page2HistoryList" class="history-list"></div>
+  </div>
+
+  <div id="page2ArrowMenu" class="arrow-menu hidden" aria-hidden="true">
+    <button id="btnArrowSave" class="accent-btn">Save Image</button>
+    <button id="btnArrowBack" class="secondary-btn">Back Page 1</button>
+    <button id="btnArrowCancel" class="ghost-btn">Cancel</button>
+  </div>
+
+  <button class="arrow next" id="toPage1" title="Back to page 1">➜</button>
+</section>
+
+<!-- PAGE 3 -->
+<section id="page3" class="page-card hidden">
+  <h3>Page 3: Morphology</h3>
+  <p class="page-note">อัปโหลดรูปใหม่สำหรับ morphology แล้วบันทึกผลได้ทันที</p>
+
+  <label for="uploadMorph">Upload Morphology Image</label>
+  <input type="file" id="uploadMorph" accept="image/*"><br><br>
+
+  <div class="canvas-wrapper">
+    <div>
+      <h4>Morph Input</h4>
+      <canvas id="morphOriginal"></canvas>
+    </div>
+    <div>
+      <h4>Morph Output</h4>
+      <canvas id="morphEdited"></canvas>
+    </div>
+  </div>
+
+  <div class="morph-controls">
+    <label for="morphType">Operation</label>
+    <select id="morphType">
+      <option value="opening">Opening</option>
+      <option value="closing">Closing</option>
+    </select>
+
+    <label for="morphKernel">Kernel Size</label>
+    <select id="morphKernel">
+      <option value="3">3x3 (Kaggle default)</option>
+      <option value="5">5x5</option>
+      <option value="7">7x7</option>
+      <option value="9">9x9</option>
+    </select>
+  </div>
+
+  <div class="center-row">
+    <button id="btnMorph">Apply Morphology</button>
+    <button id="btnSaveMorph" class="accent-btn">Save Morphology</button>
+  </div>
+</section>
+
+<!-- PAGE 4 -->
+<section id="page4" class="page-card hidden">
+  <h3>Page 4: Mammography Classification</h3>
+  <p class="page-note">อัปโหลดภาพแมมโมแกรมเพื่อวิเคราะห์คลาส normal / benign / malignant ด้วยโมเดล DenseNet121 (ONNX in-browser)</p>
+  <div id="modelStatus" class="model-status status-waiting">⏳ Model not loaded yet</div>
+
+  <label for="uploadClassify">Upload Classification Image</label>
+  <input type="file" id="uploadClassify" accept="image/*"><br><br>
+
+  <div class="canvas-wrapper single">
+    <div>
+      <h4>Image for Classification</h4>
+      <canvas id="classifyCanvas"></canvas>
+    </div>
+  </div>
+
+  <button id="btnClassify">Run Classification</button>
+  <button id="btnShowFeatures" class="secondary-btn">Show Features</button>
+  <div id="classifyResult" class="result-box">Result: waiting for image.</div>
+  <div id="featureBox" class="result-box">Features: waiting for image.</div>
+</section>
+
+</div>
+</div>
+
+<!-- MENU DRAWER -->
+<aside id="drawer" class="drawer hidden" aria-hidden="true" inert>
+  <div class="drawer-inner">
+    <div class="drawer-head">
+      <h4>menu</h4>
+      <button id="closeDrawer" class="close-btn" aria-label="Close menu">✕</button>
+    </div>
+    <button class="menu-link" data-target="page1">1) Noise + Brightness</button>
+    <button class="menu-link" data-target="page2">2) Contrast + Save</button>
+    <hr>
+    <p class="drawer-note">Functions เสริม</p>
+    <button class="menu-link" data-target="page3">3) Morphology</button>
+    <button class="menu-link" data-target="page4">4) Mammography Class</button>
+  </div>
+</aside>
+<div id="drawerBackdrop" class="drawer-backdrop hidden"></div>
+
+<script src="inference.js?v=20260423-onnx"></script>
+<script src="app.js?v=20260423-onnx"></script>
+</body>
+</html>
