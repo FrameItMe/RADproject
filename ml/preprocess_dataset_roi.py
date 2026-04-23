@@ -54,12 +54,12 @@ def crop_black_borders(gray: Image.Image) -> Image.Image:
     mask = arr > 8
     ys, xs = np.where(mask)
     if len(xs) == 0 or len(ys) == 0:
-        return gray
+        return gray, (0, 0)
     left, right = int(xs.min()), int(xs.max())
     top, bottom = int(ys.min()), int(ys.max())
     if right - left < 20 or bottom - top < 20:
-        return gray
-    return gray.crop((left, top, right + 1, bottom + 1))
+        return gray, (0, 0)
+    return gray.crop((left, top, right + 1, bottom + 1)), (left, top)
 
 
 def crop_lesion(gray: Image.Image, x: float, y: float, r: float) -> Image.Image:
@@ -95,15 +95,24 @@ def process_image(
     stem = img_path.stem.lower()
     img = Image.open(img_path).convert("L")
 
-    work = crop_black_borders(img)
+    work, (offset_x, offset_y) = crop_black_borders(img)
 
     info = meta.get(stem)
     if cls_name in {"benign", "malignant"} and info:
-        x = info.get("x")
-        y = info.get("y")
+        x_orig = info.get("x")
+        y_orig = info.get("y")
         r = info.get("r")
-        if isinstance(x, float) and isinstance(y, float) and isinstance(r, float) and r > 0:
-            roi_work = crop_lesion(work, x, y, r)
+        
+        if isinstance(x_orig, float) and isinstance(y_orig, float) and isinstance(r, float) and r > 0:
+            # MIAS Y-coordinates are from bottom, but Pillow is from top!
+            # MIAS images are originally 1024x1024, Y is from bottom.
+            y_from_top = 1024.0 - y_orig
+            
+            # Offset the coordinates because 'work' has been cropped
+            x_adj = x_orig - offset_x
+            y_adj = y_from_top - offset_y
+            
+            roi_work = crop_lesion(work, x_adj, y_adj, r)
             if roi_output_path is not None:
                 roi_work = enhance_mammogram(roi_work, cls_name)
                 roi_output_path.parent.mkdir(parents=True, exist_ok=True)

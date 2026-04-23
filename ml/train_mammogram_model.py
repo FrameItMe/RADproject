@@ -227,10 +227,11 @@ def build_model(num_classes: int = 3, class_weight_alpha=None) -> keras.Model:
 
     augment = keras.Sequential(
         [
-            layers.RandomFlip("horizontal"),
-            layers.RandomTranslation(height_factor=0.03, width_factor=0.03),
-            layers.RandomZoom(height_factor=0.05, width_factor=0.05),
-            layers.RandomContrast(0.08),
+            layers.RandomFlip("horizontal_and_vertical"),
+            layers.RandomRotation(factor=0.2),
+            layers.RandomTranslation(height_factor=0.1, width_factor=0.1),
+            layers.RandomZoom(height_factor=0.15, width_factor=0.15),
+            layers.RandomContrast(0.15),
         ],
         name="augmentation",
     )
