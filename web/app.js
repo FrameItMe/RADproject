@@ -919,7 +919,6 @@ window.onload = () => {
   const btnUndoPage2 = document.getElementById("btnUndoPage2");
   const page2HistoryList = document.getElementById("page2HistoryList");
   const classifyResultBox = document.getElementById("classifyResult");
-  const featureBox = document.getElementById("featureBox");
   let lastClassificationFeatures = null;
 
   const renderPage1 = () => {
@@ -1290,7 +1289,6 @@ window.onload = () => {
       state.classifyInputImageData = imgData;
       lastClassificationFeatures = null;
       classifyResultBox.textContent = "Result: ready to analyze.";
-      featureBox.textContent = "Features: waiting for analysis.";
       drawImageData(classifyCanvas, cctx, imgData);
     } catch (err) {
       alert("ไม่สามารถโหลดรูป classification ได้");
@@ -1332,22 +1330,6 @@ window.onload = () => {
     })();
   });
 
-  document.getElementById("btnShowFeatures").addEventListener("click", () => {
-    if (!state.classifyInputImageData) {
-      alert("ยังไม่มีภาพให้แสดง features");
-      return;
-    }
-
-    if (!lastClassificationFeatures) {
-      const preview = classifyImageDecisionTree(state.classifyInputImageData);
-      lastClassificationFeatures = preview.features;
-      classifyResultBox.textContent = `Result: ${preview.label} | Confidence: ${preview.confidence}%`;
-    }
-
-    const f = lastClassificationFeatures;
-    featureBox.textContent =
-      `breastRatio: ${(f.breastRatio * 100).toFixed(1)}% | breastMean: ${f.breastMean.toFixed(2)} | breastStdDev: ${f.breastStdDev.toFixed(2)} | lesionRatio: ${(f.lesionRatio * 100).toFixed(2)}% | lesionMean: ${f.lesionMean.toFixed(2)} | lesionContrast: ${f.lesionContrast.toFixed(2)} | circularity: ${f.lesionCircularity.toFixed(2)} | roughness: ${f.lesionRoughness.toFixed(2)} | spiculation: ${f.lesionSpiculation.toFixed(2)} | compactness: ${f.lesionCompactness.toFixed(2)} | edgeSharpness: ${f.lesionEdgeSharpness.toFixed(2)} | normalScore: ${f.normalScore.toFixed(2)} | benignScore: ${f.benignScore.toFixed(2)} | malignantScore: ${f.malignantScore.toFixed(2)}`;
-  });
 
   const drawer = document.getElementById("drawer");
   const drawerBackdrop = document.getElementById("drawerBackdrop");
