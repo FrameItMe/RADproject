@@ -1368,6 +1368,9 @@ window.onload = () => {
       cctx.strokeRect(cropResult.minX, cropResult.minY, cropResult.cropW, cropResult.cropH);
     }
     
+    // Apply CLAHE (Critical: model was trained on CLAHE images!)
+    finalImgData = applyClahe(finalImgData, 2.0, 8);
+    
     // Use ONNX model (in-browser) with fallback to decision tree
     (async () => {
       try {
