@@ -1355,21 +1355,8 @@ window.onload = () => {
     classifyBtn.disabled = true;
     classifyResultBox.textContent = "Result: processing...";
     
-    // Auto-crop before running ONNX inference
-    const features = extractClassificationFeatures(state.classifyInputImageData);
-    const cropResult = autoCropImage(state.classifyInputImageData, features, 0.4); // 40% padding
-    let finalImgData = state.classifyInputImageData;
-    
-    if (cropResult && cropResult.croppedData) {
-      finalImgData = cropResult.croppedData;
-      // Draw red bounding box on the UI canvas to show what is being analyzed
-      cctx.strokeStyle = "red";
-      cctx.lineWidth = 3;
-      cctx.strokeRect(cropResult.minX, cropResult.minY, cropResult.cropW, cropResult.cropH);
-    }
-    
-    // Apply CLAHE (Critical: model was trained on CLAHE images!)
-    finalImgData = applyClahe(finalImgData, 2.0, 8);
+    // Apply CLAHE (Critical: model is trained on CLAHE images)
+    let finalImgData = applyClahe(state.classifyInputImageData, 2.0, 8);
     
     // Use ONNX model (in-browser) with fallback to decision tree
     (async () => {

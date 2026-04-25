@@ -17,9 +17,9 @@ const IMG_SIZE = 224;
 
 // Calibration thresholds (from artifacts/calibration.json)
 const CALIBRATION_THRESHOLDS = {
-  normal: 0.75,
-  benign: 0.85,
-  malignant: 0.85,
+  normal: 0.85,
+  benign: 0.70,
+  malignant: 0.25,
 };
 
 const CLASS_NAMES = ['normal', 'benign', 'malignant'];
