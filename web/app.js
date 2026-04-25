@@ -612,7 +612,11 @@ const extractClassificationFeatures = (imgData) => {
       lesionThreshold: 0,
       normalScore: 1,
       benignScore: 0,
-      malignantScore: 0
+      malignantScore: 0,
+      lesionMinX: 0,
+      lesionMinY: 0,
+      lesionMaxX: w,
+      lesionMaxY: h
     };
   }
 
@@ -661,7 +665,11 @@ const extractClassificationFeatures = (imgData) => {
       lesionThreshold,
       normalScore: 1,
       benignScore: 0,
-      malignantScore: 0
+      malignantScore: 0,
+      lesionMinX: 0,
+      lesionMinY: 0,
+      lesionMaxX: w,
+      lesionMaxY: h
     };
   }
 
@@ -788,7 +796,11 @@ const extractClassificationFeatures = (imgData) => {
     lesionThreshold,
     normalScore,
     benignScore,
-    malignantScore
+    malignantScore,
+    lesionMinX,
+    lesionMinY,
+    lesionMaxX,
+    lesionMaxY
   };
 };
 
@@ -854,6 +866,42 @@ const classifyImageDecisionTree = (imgData) => {
     confidence,
     features
   };
+};
+
+const autoCropImage = (imgData, features, paddingFactor = 0.3) => {
+  const w = imgData.width;
+  const h = imgData.height;
+  
+  if (features.lesionMaxX <= features.lesionMinX || features.lesionMaxY <= features.lesionMinY) {
+    return imgData; // No valid crop found
+  }
+
+  const boxW = features.lesionMaxX - features.lesionMinX;
+  const boxH = features.lesionMaxY - features.lesionMinY;
+  
+  const padX = boxW * paddingFactor;
+  const padY = boxH * paddingFactor;
+
+  const minX = Math.max(0, Math.floor(features.lesionMinX - padX));
+  const minY = Math.max(0, Math.floor(features.lesionMinY - padY));
+  const maxX = Math.min(w, Math.ceil(features.lesionMaxX + padX));
+  const maxY = Math.min(h, Math.ceil(features.lesionMaxY + padY));
+
+  const cropW = maxX - minX;
+  const cropH = maxY - minY;
+
+  const cropped = new ImageData(cropW, cropH);
+  for (let y = 0; y < cropH; y++) {
+    for (let x = 0; x < cropW; x++) {
+      const srcIdx = ((minY + y) * w + (minX + x)) * 4;
+      const dstIdx = (y * cropW + x) * 4;
+      cropped.data[dstIdx] = imgData.data[srcIdx];
+      cropped.data[dstIdx + 1] = imgData.data[srcIdx + 1];
+      cropped.data[dstIdx + 2] = imgData.data[srcIdx + 2];
+      cropped.data[dstIdx + 3] = imgData.data[srcIdx + 3];
+    }
+  }
+  return { croppedData: cropped, minX, minY, cropW, cropH };
 };
 
 const saveCanvas = (canvas, fileName = "image.png") => {
@@ -1307,10 +1355,23 @@ window.onload = () => {
     classifyBtn.disabled = true;
     classifyResultBox.textContent = "Result: processing...";
     
+    // Auto-crop before running ONNX inference
+    const features = extractClassificationFeatures(state.classifyInputImageData);
+    const cropResult = autoCropImage(state.classifyInputImageData, features, 0.4); // 40% padding
+    let finalImgData = state.classifyInputImageData;
+    
+    if (cropResult && cropResult.croppedData) {
+      finalImgData = cropResult.croppedData;
+      // Draw red bounding box on the UI canvas to show what is being analyzed
+      cctx.strokeStyle = "red";
+      cctx.lineWidth = 3;
+      cctx.strokeRect(cropResult.minX, cropResult.minY, cropResult.cropW, cropResult.cropH);
+    }
+    
     // Use ONNX model (in-browser) with fallback to decision tree
     (async () => {
       try {
-        const result = await classifyWithModel(state.classifyInputImageData);
+        const result = await classifyWithModel(finalImgData);
         lastClassificationFeatures = result.features || {};
         const probs = result.probabilities || {};
         const pNormal = Number(probs.normal || 0).toFixed(3);
