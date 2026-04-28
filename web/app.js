@@ -210,43 +210,41 @@ const estimateNoiseVariance = (imgData) => {
   const w = imgData.width;
   const h = imgData.height;
   const d = imgData.data;
-  let residualSum = 0;
-  let residualSqSum = 0;
-  let count = 0;
-
-  for (let y = 1; y < h - 1; y += 1) {
-    for (let x = 1; x < w - 1; x += 1) {
-      let localMean = 0;
-      let localCount = 0;
-
-      for (let ky = -1; ky <= 1; ky += 1) {
-        for (let kx = -1; kx <= 1; kx += 1) {
-          const px = x + kx;
-          const py = y + ky;
-          const idx = (py * w + px) * 4;
-          const gray = (d[idx] + d[idx + 1] + d[idx + 2]) / 3;
-          localMean += gray;
-          localCount += 1;
+  
+  const sampleCount = 10000;
+  const residuals = new Float32Array(sampleCount);
+  let actualSamples = 0;
+  
+  for (let i = 0; i < sampleCount; i++) {
+    const x = 1 + Math.floor(Math.random() * (w - 3));
+    const y = 1 + Math.floor(Math.random() * (h - 3));
+    
+    const neighborhood = [];
+    let centerGray = 0;
+    
+    for (let ky = -1; ky <= 1; ky += 1) {
+      for (let kx = -1; kx <= 1; kx += 1) {
+        const idx = ((y + ky) * w + (x + kx)) * 4;
+        const gray = (d[idx] + d[idx + 1] + d[idx + 2]) / 3;
+        neighborhood.push(gray);
+        if (ky === 0 && kx === 0) {
+          centerGray = gray;
         }
       }
-
-      localMean /= localCount;
-      const centerIdx = (y * w + x) * 4;
-      const centerGray = (d[centerIdx] + d[centerIdx + 1] + d[centerIdx + 2]) / 3;
-      const residual = centerGray - localMean;
-
-      residualSum += residual;
-      residualSqSum += residual * residual;
-      count += 1;
     }
+    
+    neighborhood.sort((a, b) => a - b);
+    const median = neighborhood[4];
+    
+    residuals[actualSamples++] = Math.abs(centerGray - median);
   }
-
-  if (count === 0) {
-    return 0;
-  }
-
-  const meanResidual = residualSum / count;
-  return Math.max(0, residualSqSum / count - meanResidual * meanResidual);
+  
+  residuals.sort();
+  // Use 90th percentile of absolute differences to ignore up to 10% of text edges
+  const p90 = residuals[Math.floor(actualSamples * 0.90)];
+  
+  // Scale factor to roughly match the legacy MSE variance scale used in suggestNoiseFilter
+  return p90 * p90 * 1.5; 
 };
 
 const suggestNoiseFilter = (variance) => {
@@ -314,17 +312,41 @@ const applyContrast = (imgData, value) => {
 };
 
 const autoContrast = (imgData) => {
-  let min = 255;
-  let max = 0;
   const src = imgData.data;
-
+  const hist = new Uint32Array(256);
+  let totalPixels = 0;
+  
   for (let i = 0; i < src.length; i += 4) {
-    const gray = (src[i] + src[i + 1] + src[i + 2]) / 3;
-    min = Math.min(min, gray);
-    max = Math.max(max, gray);
+    const gray = clamp(Math.round((src[i] + src[i + 1] + src[i + 2]) / 3));
+    hist[gray]++;
+    totalPixels++;
+  }
+  
+  let min = 0;
+  let max = 255;
+  // Ignore lowest 5% and highest 5% (pure black background and pure white text)
+  const pLow = totalPixels * 0.05;
+  const pHigh = totalPixels * 0.05;
+  
+  let sum = 0;
+  for (let i = 0; i < 256; i++) {
+    sum += hist[i];
+    if (sum >= pLow) {
+      min = i;
+      break;
+    }
+  }
+  
+  sum = 0;
+  for (let i = 255; i >= 0; i--) {
+    sum += hist[i];
+    if (sum >= pHigh) {
+      max = i;
+      break;
+    }
   }
 
-  if (max === min) {
+  if (max <= min) {
     return copyImageData(imgData);
   }
 
@@ -802,6 +824,59 @@ const extractClassificationFeatures = (imgData) => {
     lesionMaxX,
     lesionMaxY
   };
+};
+
+const autoCropBreast = (imgData) => {
+  const w = imgData.width;
+  const h = imgData.height;
+  const src = imgData.data;
+
+  const rowSums = new Int32Array(h);
+  const colSums = new Int32Array(w);
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = (y * w + x) * 4;
+      const gray = 0.299 * src[idx] + 0.587 * src[idx+1] + 0.114 * src[idx+2];
+      if (gray > 15) {
+        rowSums[y]++;
+        colSums[x]++;
+      }
+    }
+  }
+
+  const rowThresh = w * 0.02;
+  const colThresh = h * 0.02;
+
+  let minY = 0;
+  while (minY < h && rowSums[minY] < rowThresh) minY++;
+  let maxY = h - 1;
+  while (maxY > minY && rowSums[maxY] < rowThresh) maxY--;
+
+  let minX = 0;
+  while (minX < w && colSums[minX] < colThresh) minX++;
+  let maxX = w - 1;
+  while (maxX > minX && colSums[maxX] < colThresh) maxX--;
+
+  if (minX >= maxX || minY >= maxY) {
+    return { croppedData: imgData, minX: 0, minY: 0, cropW: w, cropH: h };
+  }
+
+  const cropW = maxX - minX + 1;
+  const cropH = maxY - minY + 1;
+  const cropped = new ImageData(cropW, cropH);
+
+  for (let y = 0; y < cropH; y++) {
+    for (let x = 0; x < cropW; x++) {
+      const srcIdx = ((minY + y) * w + (minX + x)) * 4;
+      const dstIdx = (y * cropW + x) * 4;
+      cropped.data[dstIdx] = src[srcIdx];
+      cropped.data[dstIdx+1] = src[srcIdx+1];
+      cropped.data[dstIdx+2] = src[srcIdx+2];
+      cropped.data[dstIdx+3] = src[srcIdx+3];
+    }
+  }
+  return { croppedData: cropped, minX, minY, cropW, cropH };
 };
 
 const classifyImageDecisionTree = (imgData) => {
@@ -1354,8 +1429,7 @@ window.onload = () => {
     drawImageData(classifyCanvas, cctx, state.classifyInputImageData);
     classifyBtn.disabled = true;
     classifyResultBox.textContent = "Result: processing...";
-    
-    // Apply CLAHE (Critical: model is trained on CLAHE images)
+    // Apply CLAHE directly on the full image (Critical: model is trained on CLAHE images)
     let finalImgData = applyClahe(state.classifyInputImageData, 2.0, 8);
     
     // Use ONNX model (in-browser) with fallback to decision tree

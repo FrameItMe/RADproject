@@ -408,3 +408,10 @@ response
 6. Production artifacts: artifacts/
 7. Experiments and backups: experiments/
 8. Runtime logs: logs/server.log
+
+## 16) Recent Updates (Robust CV)
+
+**1. Robust Image Processing Estimators (หน้า 1 & 2)**
+แก้ไขบั๊กคณิตศาสตร์ของการประมวลผลภาพอัตโนมัติ เพื่อไม่ให้รวนเวลาเจอตัวหนังสือสีขาว (Text) หรือขอบฟิล์มสีดำ:
+- **Auto Noise:** เปลี่ยนสมการเป็น **Median Absolute Deviation (MAD)** และตัดพิกเซลขยะทิ้ง 10% เพื่อให้คำนวณเฉพาะเม็ด Noise แท้ๆ
+- **Auto Contrast:** เปลี่ยนสมการการดึงแสงเป็น **Percentile-based Normalization** (ตัดหัวท้าย 5%) เพื่อไม่ให้ขอบภาพสีดำหรือตัวหนังสือสีขาวมาดึงความสว่างจนเพี้ยน
